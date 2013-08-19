@@ -4,7 +4,7 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.neo4j.bench.page.FileWithRecords;
-import org.neo4j.bench.page.PageReferenceSynchronization;
+import org.neo4j.bench.page.PageSynchronization;
 import org.neo4j.bench.page.PageType;
 import org.neo4j.bench.page.QueueNotificationType;
 import org.neo4j.bench.page.Random;
@@ -22,7 +22,7 @@ public class QueuedPagingSystemOnFile implements SomethingWithRecords
     private final WorkerThread workerThread;
     
     public QueuedPagingSystemOnFile( FileWithRecords fwr, int targetPageSize, PageType pageType,
-            PageReferenceSynchronization refSync, QueueNotificationType notificationType )
+            PageSynchronization refSync, QueueNotificationType notificationType )
     {
         this.fwr = fwr;
         this.psof = new PagingSystemOnFile( fwr, targetPageSize, pageType, refSync );

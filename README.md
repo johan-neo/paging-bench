@@ -21,7 +21,7 @@ Run java -jar target/paging-bench-0.1.jar --help
 		--doSeqWrite 
 	
 		--pageType <PLAIN | PLAIN_WITH_LIST | PLAIN_WITH_MAP | MEMORY_MAPPED | SINGLE_THREADED_MEMORY_MAPPED | SINGLE_THREADED_PLAIN> 
-		--sync <NONE | ATOMIC> 
+		--sync <NONE | ATOMIC | LOCK > 
 		--pageSizeInKb <size kb> 
 	
 		--printConfiguration 

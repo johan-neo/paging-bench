@@ -1,7 +1,7 @@
 package org.neo4j.bench.page.impl;
 
 import org.neo4j.bench.page.FileWithRecords;
-import org.neo4j.bench.page.PageReferenceSynchronization;
+import org.neo4j.bench.page.PageSynchronization;
 import org.neo4j.bench.page.PageType;
 import org.neo4j.bench.page.Random;
 import org.neo4j.bench.page.Record;
@@ -16,11 +16,11 @@ public class PagingSystemOnFile implements SomethingWithRecords
     private final int pageSizeBytes;
     private final int pageSizeRecords;    
     private final PageType pageType;
-    private final PageReferenceSynchronization pageReferenceSync;
+    private final PageSynchronization pageReferenceSync;
    
     private final PageElement[] pages;
 
-    public PagingSystemOnFile( FileWithRecords fwr, int targetPageSize, PageType type, PageReferenceSynchronization refSync )
+    public PagingSystemOnFile( FileWithRecords fwr, int targetPageSize, PageType type, PageSynchronization refSync )
     {
         this.fwr = fwr;
         int recordSize = fwr.getRecordSize();
@@ -124,6 +124,9 @@ public class PagingSystemOnFile implements SomethingWithRecords
                 break;
             case NONE:
                 pages[i] = new NoSyncPageElement( page );
+                break;
+            case LOCK:
+                pages[i] = new ExclusiveLockPageElement( page );
                 break;
             default:
                 throw new RuntimeException( "Invalid enum " + pageReferenceSync );

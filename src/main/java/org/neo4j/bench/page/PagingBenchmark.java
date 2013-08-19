@@ -13,7 +13,7 @@ public class PagingBenchmark
     private static final AtomicLong writeCount = new AtomicLong();
     
     private static PageType pageType = PageType.MEMORY_MAPPED;
-    private static PageReferenceSynchronization pageSync = PageReferenceSynchronization.NONE;
+    private static PageSynchronization pageSync = PageSynchronization.NONE;
     private static PagingType pagingType = PagingType.DIRECT;
     private static int pageSizeKb = 2;
     
@@ -46,7 +46,7 @@ public class PagingBenchmark
                 "\t--doSeqWrite \n" +
                 "\n" +
                 "\t--pageType <PLAIN | PLAIN_WITH_LIST | PLAIN_WITH_MAP | MEMORY_MAPPED | SINGLE_THREADED_MEMORY_MAPPED | SINGLE_THREADED_PLAIN> \n" +
-                "\t--sync <NONE | ATOMIC> \n" +
+                "\t--sync <NONE | ATOMIC | LOCK> \n" +
                 "\t--pageSizeInKb <size kb> \n" +
                 "\n" +
                 "\t--printConfiguration \n" +
@@ -333,13 +333,13 @@ public class PagingBenchmark
                     {
                         pageType = PageType.SINGLE_THREADED_MEMORY_MAPPED;
                         pagingType = PagingType.QUEUED;
-                        pageSync = PageReferenceSynchronization.NONE;
+                        pageSync = PageSynchronization.NONE;
                     }
                     else if ( pageTypeString.equals( PageType.SINGLE_THREADED_PLAIN.name() ) )
                     {
                         pageType = PageType.SINGLE_THREADED_PLAIN;
                         pagingType = PagingType.QUEUED;
-                        pageSync = PageReferenceSynchronization.NONE;
+                        pageSync = PageSynchronization.NONE;
                     }
                     else
                     {
@@ -349,7 +349,7 @@ public class PagingBenchmark
                 else if ( arg.equals( "--sync" ) )
                 {
                     String syncString = args[++i].toUpperCase();
-                    if ( syncString.equals( PageReferenceSynchronization.ATOMIC.name() ) )
+                    if ( syncString.equals( PageSynchronization.ATOMIC.name() ) )
                     {
                         if ( pagingType == PagingType.QUEUED )
                         {
@@ -357,12 +357,20 @@ public class PagingBenchmark
                         }
                         else
                         {
-                            pageSync = PageReferenceSynchronization.ATOMIC;
+                            pageSync = PageSynchronization.ATOMIC;
                         }
                     }
-                    else if ( syncString.equals( PageReferenceSynchronization.NONE.name() ) )
+                    else if ( syncString.equals( PageSynchronization.NONE.name() ) )
                     { 
-                        pageSync = PageReferenceSynchronization.NONE;
+                        pageSync = PageSynchronization.NONE;
+                    }
+                    else if ( syncString.equals(  PageSynchronization.LOCK.name() ) )
+                    {
+                        pageSync = PageSynchronization.LOCK;
+                    }
+                    else
+                    {
+                        throw new IllegalArgumentException( "Sync: " + syncString );
                     }
                 }
                 else if ( arg.equals( "--pagesizeinkb" ) )
