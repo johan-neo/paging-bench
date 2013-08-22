@@ -39,27 +39,10 @@ public class PagingSystemOnFile implements SomethingWithRecords
     }
  
 
-    public Record readRandomRecord( final Random r )
-    {
-        long record = r.next();
-        return getRecord( record );
-    }
-
-    public void writeRandomRecord( final Random r )
-    {
-        long record = r.next();
-        byte[] data = new byte[ fwr.getRecordSize() ];
-        for ( int i = 0; i < data.length; i++ )
-        {
-            data[i] = (byte) (record % 256);
-        }
-        writeRecord( record, data );
-    }
-
-    public Record getRecord( long record )
+    public byte[] getRecord( long record )
     {
         PageElement pageElement = pages[ (int) (record / pageSizeRecords) ];
-        return new Record( record, pageElement.readRecord( record ) );
+        return pageElement.readRecord( record );
     }
     
     public void writeRecord( long record, byte[] data )
@@ -101,17 +84,8 @@ public class PagingSystemOnFile implements SomethingWithRecords
             case PLAIN:
                 page = new PlainPageImpl( fwr.read( startRecord, pageSizeRecords ), startRecord, pageSizeRecords, fwr.getRecordSize()  );
                 break;
-            case PLAIN_WITH_LIST:
-                page = new PlainListPageImpl( fwr.read( startRecord, pageSizeRecords ), startRecord, pageSizeRecords, fwr.getRecordSize()  );
-                break;
-            case PLAIN_WITH_MAP:
-                page = new PlainMapPageImpl( fwr.read( startRecord, pageSizeRecords ), startRecord, pageSizeRecords, fwr.getRecordSize()  );
-                break;
-            case SINGLE_THREADED_MEMORY_MAPPED:
-                page = new SingleThreadedMemoryMappedPage( fwr.map( startRecord, pageSizeRecords ), startRecord, pageSizeRecords, fwr.getRecordSize()  );               
-                break;
-            case SINGLE_THREADED_PLAIN:
-                page = new SingleThreadedPlainPageImpl( fwr.read( startRecord, pageSizeRecords ), startRecord, pageSizeRecords, fwr.getRecordSize()  );
+            case FAKE:
+                page = new FakePageImpl( null, startRecord, pageSizeRecords, fwr.getRecordSize()  );
                 break;
             default:
                 throw new RuntimeException( "Invalid enum " + pageType );

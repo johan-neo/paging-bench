@@ -1,15 +1,9 @@
 package org.neo4j.bench.page.api;
 
-import org.neo4j.bench.page.Random;
-import org.neo4j.bench.page.Record;
-
 public interface SomethingWithRecords
 {
-    Record readRandomRecord( Random r );
-    void writeRandomRecord( Random r );
-    
-    long readSeqAllRecords();
-    long writeSeqAllRecord();
+    byte[] getRecord( long id );
+    void writeRecord( long id, byte[] data );
     
     void close();
     

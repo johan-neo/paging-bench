@@ -1,7 +1,7 @@
 package org.neo4j.bench.page.impl;
 
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 
 import org.neo4j.bench.page.FileWithRecords;
 import org.neo4j.bench.page.PageSynchronization;
@@ -13,39 +13,57 @@ import org.neo4j.bench.page.api.SomethingWithRecords;
 
 public class QueuedPagingSystemOnFile implements SomethingWithRecords
 {
-    private Queue<Operation> queue = new ConcurrentLinkedQueue<Operation>();
+    private LinkedBlockingQueue<Operation> queue = new LinkedBlockingQueue<Operation>( 2000000 );
     
     private final QueueNotificationType notificationType; 
   
-    private final FileWithRecords fwr; 
+    // private final FileWithRecords fwr;
+    
     private final PagingSystemOnFile psof;
     private final WorkerThread workerThread;
     
-    public QueuedPagingSystemOnFile( FileWithRecords fwr, int targetPageSize, PageType pageType,
-            PageSynchronization refSync, QueueNotificationType notificationType )
+    public QueuedPagingSystemOnFile( FileWithRecords fwr, int targetPageSize, PageType pageType, 
+            QueueNotificationType notificationType )
     {
-        this.fwr = fwr;
-        this.psof = new PagingSystemOnFile( fwr, targetPageSize, pageType, refSync );
+        // this.fwr = fwr;
+        this.psof = new PagingSystemOnFile( fwr, targetPageSize, pageType, PageSynchronization.NONE );
         
         this.notificationType = notificationType;
         this.workerThread = new WorkerThread( queue, psof );
         workerThread.start();
     }
     
-    private Record getRecord( long record )
+    public byte[] getRecord( long record )
     {
         Operation operation = new Operation( OperationType.READ, notificationType );
-        queue.add( operation );
+        try
+        {
+            queue.offer( operation, 5, TimeUnit.SECONDS );
+        }
+        catch ( InterruptedException e )
+        {
+            Thread.interrupted();
+        }
         operation.waitForCompletion();
-        return operation.getRecord();
+        if ( operation.getRecord() != null )
+        {
+            return operation.getRecord().getData();
+        }
+        return null;
     }
     
-    private void writeRecord( long record, byte[] data )
+    public void writeRecord( long record, byte[] data )
     {
         Operation operation = new Operation( OperationType.WRITE, notificationType );
         operation.setRecord( new Record( record, data ) );
-        queue.add( operation );
-        // not needed: operation.waitForCompletion();
+        try
+        {
+            queue.put( operation);
+        }
+        catch ( InterruptedException e )
+        {
+            Thread.interrupted();
+        }
     }
     
     public void close()
@@ -57,11 +75,11 @@ public class QueuedPagingSystemOnFile implements SomethingWithRecords
     class WorkerThread extends Thread
     {
         private volatile boolean workOnQueue = true;
-        private final Queue<Operation> queue;
+        private final LinkedBlockingQueue<Operation> queue;
         private final PagingSystemOnFile psof;
         private final Random r;
         
-        WorkerThread( Queue<Operation> queue, PagingSystemOnFile psof )
+        WorkerThread( LinkedBlockingQueue<Operation> queue, PagingSystemOnFile psof )
         {
             this.queue = queue;
             this.psof = psof;
@@ -71,15 +89,24 @@ public class QueuedPagingSystemOnFile implements SomethingWithRecords
         @Override
         public void run()
         {
-            while ( workOnQueue || queue.peek() != null )
+            while ( workOnQueue ) // || queue.peek() != null )
             {
-                Operation operation = queue.poll();
+                Operation operation = null;
+                try
+                {
+                    operation = queue.poll( 5, TimeUnit.SECONDS );
+                }
+                catch ( InterruptedException e )
+                {
+                    interrupted();
+                }
                 if ( operation != null )
                 {
                     if ( operation.operationType == OperationType.READ )
                     {
-                        Record record = psof.readRandomRecord( r );
-                        operation.setRecord( record );
+                        long id = r.next();
+                        byte[] data = psof.getRecord( id );
+                        operation.setRecord( new Record( id, data ) );
                         operation.notifyCompleted();
                     }
                     else
@@ -95,41 +122,6 @@ public class QueuedPagingSystemOnFile implements SomethingWithRecords
         {
             workOnQueue = false;
         }
-    }
-
-    public Record readRandomRecord( final Random r )
-    {
-        long record = r.next();
-        return getRecord( record );
-    }
-
-    public void writeRandomRecord( final Random r )
-    {
-        long record = r.next();
-        byte[] data = new byte[ fwr.getRecordSize() ];
-        for ( int i = 0; i < data.length; i++ )
-        {
-            data[i] = (byte) (record % 256);
-        }
-        writeRecord( record, data );
-    }
-
-    public long readSeqAllRecords()
-    {
-        for ( long i = 0; i < fwr.getNrOfRecords(); i++ )
-        {
-            getRecord( i );
-        }
-        return fwr.getNrOfRecords();
-    }
-
-    public long writeSeqAllRecord()
-    {
-        for ( long i = 0; i < fwr.getNrOfRecords(); i++ )
-        {
-            writeRecord( i, new byte[ fwr.getRecordSize() ] );
-        }
-        return fwr.getNrOfRecords();
     }
 
     public long getNrOfRecords()

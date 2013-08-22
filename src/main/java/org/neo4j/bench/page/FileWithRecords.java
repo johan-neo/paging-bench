@@ -106,8 +106,11 @@ public class FileWithRecords
     {
         try
         {
+            if ( fileSize < (recordCount * recordSize) )
+            {
+                fileChannel.truncate( recordCount * recordSize );
+            }
             this.fileSize = recordCount * recordSize;
-            fileChannel.truncate( recordCount * recordSize );
         }
         catch ( IOException e )
         {

@@ -29,9 +29,10 @@ public class Operation
             case SPIN:
                 waitUsingSpin();
                 break;
+            case NONE:
+                break;
             default:
                 throw new RuntimeException( "" + notificationType );
-            
             };
         }
     }
@@ -48,9 +49,10 @@ public class Operation
             case SPIN:
                 notifyUsingSpin();
                 break;
+            case NONE:
+                break;
             default:
                 throw new RuntimeException( "" + notificationType );
-            
             };
         }
     }

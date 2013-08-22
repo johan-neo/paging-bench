@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.neo4j.bench.page.api.SomethingWithRecords;
+import org.neo4j.bench.page.impl.LmaxPagingSystemOnFile;
 import org.neo4j.bench.page.impl.PagingSystemOnFile;
 import org.neo4j.bench.page.impl.QueuedPagingSystemOnFile;
 
@@ -14,7 +15,6 @@ public class PagingBenchmark
     
     private static PageType pageType = PageType.MEMORY_MAPPED;
     private static PageSynchronization pageSync = PageSynchronization.NONE;
-    private static PagingType pagingType = PagingType.DIRECT;
     private static int pageSizeKb = 2;
     
     private static boolean doSeqRead = false;
@@ -42,11 +42,9 @@ public class PagingBenchmark
                 "\t--readWriteRatio <ratio> \n" +
                 "\t--secondsToRun <seconds> \n" +
                 "\t--secondsBetweenStats <seconds> \n" +
-                "\t--doSeqRead \n" +
-                "\t--doSeqWrite \n" +
                 "\n" +
-                "\t--pageType <PLAIN | PLAIN_WITH_LIST | PLAIN_WITH_MAP | MEMORY_MAPPED | SINGLE_THREADED_MEMORY_MAPPED | SINGLE_THREADED_PLAIN> \n" +
-                "\t--sync <NONE | ATOMIC | LOCK> \n" +
+                "\t--pageType <PLAIN | MEMORY_MAPPED | FAKE> \n" +
+                "\t--sync <NONE | ATOMIC | LOCK | QUEUE | LMAX> \n" +
                 "\t--pageSizeInKb <size kb> \n" +
                 "\n" +
                 "\t--printConfiguration \n" +
@@ -58,6 +56,11 @@ public class PagingBenchmark
     
     public static void main( String[] args )
     {
+        if ( args.length == 0 )
+        {
+            usage();
+            System.exit( 0 );
+        }
         parseConfiguration( args );
         FileWithRecords fwr;
         if ( fileName != null )
@@ -69,38 +72,29 @@ public class PagingBenchmark
             fwr = new FileWithRecords( tempFileSize, recordSize );
         }
         
-        SomethingWithRecords swr;
-        switch ( pagingType )
+        SomethingWithRecords swr = null;
+        switch ( pageSync )
         {
-        case DIRECT:
+        
+        case ATOMIC:        
+        case LOCK:
+        case NONE:
             swr = new PagingSystemOnFile( fwr, pageSizeKb*1024, pageType, pageSync );
             break;
-        case QUEUED:
-            swr = new QueuedPagingSystemOnFile( fwr, pageSizeKb*1024, pageType, pageSync, QueueNotificationType.SPIN );
+        case QUEUE:
+            swr = new QueuedPagingSystemOnFile( fwr, pageSizeKb*1024, pageType, QueueNotificationType.NONE );
+            break;
+        case LMAX:
+            swr = new LmaxPagingSystemOnFile( fwr, pageSizeKb*1024, pageType, QueueNotificationType.NONE );
             break;
         default:
-            throw new RuntimeException( "" + pagingType );
+            throw new RuntimeException( "" + pageSync );
         
-        };
+        }
                 
         if ( printConfiguration )
         {
             printConfiguraiton( fwr );
-        }
-        long startTime, endTime;
-        if ( doSeqRead )
-        {
-            startTime = System.currentTimeMillis();
-            long count = swr.readSeqAllRecords();
-            endTime = System.currentTimeMillis();
-            System.out.println( "SeqRead (records/s): " + count * 1000.0f / ( endTime - startTime) );
-        }
-        if ( doSeqWrite )
-        {
-            startTime = System.currentTimeMillis();
-            long count = swr.writeSeqAllRecord();
-            endTime = System.currentTimeMillis();
-            System.out.println( "SeqWrite (records/s): " + count * 1000.0f / ( endTime - startTime) );
         }
         if ( readWriteRatio != -1.0f )
         {
@@ -221,7 +215,8 @@ public class PagingBenchmark
                     {
                         for ( int i = 0; i < READ_OR_WRITE_COUNT; i++ )
                         {
-                            swr.readRandomRecord( r );
+                            
+                            swr.getRecord( r.next() );
                         }
                         readCount += READ_OR_WRITE_COUNT;
                     }
@@ -229,7 +224,7 @@ public class PagingBenchmark
                     {
                         for ( int i = 0; i < READ_OR_WRITE_COUNT; i++ )
                         {
-                            swr.writeRandomRecord( r );
+                            swr.writeRecord( r.next(), null );
                         }
                         writeCount += READ_OR_WRITE_COUNT;
                     }
@@ -311,35 +306,18 @@ public class PagingBenchmark
                 }
                 else if ( arg.equals( "--pagetype" ) )
                 {
-                    pagingType = PagingType.DIRECT;
                     String pageTypeString = args[++i].toUpperCase(); 
                     if ( pageTypeString.equals( PageType.PLAIN.name() ) )
                     {
                         pageType = PageType.PLAIN;
                     }
-                    else if ( pageTypeString.equals( PageType.PLAIN_WITH_LIST.name() ) )
+                    else if ( pageTypeString.equals( PageType.FAKE.name() ) )
                     {
-                        pageType = PageType.PLAIN_WITH_LIST;
-                    }
-                    else if ( pageTypeString.equals( PageType.PLAIN_WITH_MAP.name() ) )
-                    {
-                        pageType = PageType.PLAIN_WITH_MAP;
+                        pageType = PageType.FAKE;
                     }
                     else if ( pageTypeString.equals( PageType.MEMORY_MAPPED.name() ) )
                     {
                         pageType = PageType.MEMORY_MAPPED;
-                    }
-                    else if ( pageTypeString.equals( PageType.SINGLE_THREADED_MEMORY_MAPPED.name() ) )
-                    {
-                        pageType = PageType.SINGLE_THREADED_MEMORY_MAPPED;
-                        pagingType = PagingType.QUEUED;
-                        pageSync = PageSynchronization.NONE;
-                    }
-                    else if ( pageTypeString.equals( PageType.SINGLE_THREADED_PLAIN.name() ) )
-                    {
-                        pageType = PageType.SINGLE_THREADED_PLAIN;
-                        pagingType = PagingType.QUEUED;
-                        pageSync = PageSynchronization.NONE;
                     }
                     else
                     {
@@ -351,14 +329,7 @@ public class PagingBenchmark
                     String syncString = args[++i].toUpperCase();
                     if ( syncString.equals( PageSynchronization.ATOMIC.name() ) )
                     {
-                        if ( pagingType == PagingType.QUEUED )
-                        {
-                            System.out.println( "Ignoring ATOMIC on SINGLE THREADED page type" );
-                        }
-                        else
-                        {
-                            pageSync = PageSynchronization.ATOMIC;
-                        }
+                        pageSync = PageSynchronization.ATOMIC;
                     }
                     else if ( syncString.equals( PageSynchronization.NONE.name() ) )
                     { 
@@ -367,6 +338,14 @@ public class PagingBenchmark
                     else if ( syncString.equals(  PageSynchronization.LOCK.name() ) )
                     {
                         pageSync = PageSynchronization.LOCK;
+                    }
+                    else if ( syncString.equals(  PageSynchronization.QUEUE.name() ) )
+                    {
+                        pageSync = PageSynchronization.QUEUE;
+                    }
+                    else if ( syncString.equals(  PageSynchronization.LMAX.name() ) )
+                    {
+                        pageSync = PageSynchronization.LMAX;
                     }
                     else
                     {
@@ -431,7 +410,6 @@ public class PagingBenchmark
                 " doSeqWrite=" + doSeqWrite +
                 " pageType=" + pageType + 
                 " sync=" + pageSync +
-                " pagingType=" + pagingType +
                 " pageSizeInKb=" + pageSizeKb + 
                 " verbose=" + verbose + 
                 " tsvFormat=" + tsvOutput + 

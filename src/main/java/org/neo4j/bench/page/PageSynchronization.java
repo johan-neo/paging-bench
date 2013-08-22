@@ -4,5 +4,7 @@ public enum PageSynchronization
 {
     NONE,
     ATOMIC,
-    LOCK
+    LOCK,
+    QUEUE,
+    LMAX
 }
