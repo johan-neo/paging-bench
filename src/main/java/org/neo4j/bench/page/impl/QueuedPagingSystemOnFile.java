@@ -1,6 +1,6 @@
 package org.neo4j.bench.page.impl;
 
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import org.neo4j.bench.page.FileWithRecords;
@@ -13,7 +13,7 @@ import org.neo4j.bench.page.api.SomethingWithRecords;
 
 public class QueuedPagingSystemOnFile implements SomethingWithRecords
 {
-    private LinkedBlockingQueue<Operation> queue = new LinkedBlockingQueue<Operation>( 2000000 );
+    private ArrayBlockingQueue<Operation> queue = new ArrayBlockingQueue<Operation>( 2000000 );
     
     private final QueueNotificationType notificationType; 
   
@@ -75,11 +75,11 @@ public class QueuedPagingSystemOnFile implements SomethingWithRecords
     class WorkerThread extends Thread
     {
         private volatile boolean workOnQueue = true;
-        private final LinkedBlockingQueue<Operation> queue;
+        private final ArrayBlockingQueue<Operation> queue;
         private final PagingSystemOnFile psof;
         private final Random r;
         
-        WorkerThread( LinkedBlockingQueue<Operation> queue, PagingSystemOnFile psof )
+        WorkerThread( ArrayBlockingQueue<Operation> queue, PagingSystemOnFile psof )
         {
             this.queue = queue;
             this.psof = psof;
@@ -89,7 +89,7 @@ public class QueuedPagingSystemOnFile implements SomethingWithRecords
         @Override
         public void run()
         {
-            while ( workOnQueue ) // || queue.peek() != null )
+            while ( workOnQueue || queue.peek() != null )
             {
                 Operation operation = null;
                 try

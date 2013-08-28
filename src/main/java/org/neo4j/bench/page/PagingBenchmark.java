@@ -224,7 +224,12 @@ public class PagingBenchmark
                     {
                         for ( int i = 0; i < READ_OR_WRITE_COUNT; i++ )
                         {
-                            swr.writeRecord( r.next(), null );
+                            byte[] data = null;
+                            if ( pageType != PageType.FAKE )
+                            {
+                                data = new byte[recordSize];
+                            }
+                            swr.writeRecord( r.next(), data );
                         }
                         writeCount += READ_OR_WRITE_COUNT;
                     }
@@ -236,7 +241,7 @@ public class PagingBenchmark
             }
             catch ( NullPointerException e )
             {
-                // way to terminitate 
+                // this is sometiems the way to terminitate 
             }
         }
     }
