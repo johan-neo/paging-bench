@@ -16,7 +16,18 @@ class AtomicPageElement implements PageElement
     
     public byte[] readRecord( long record )
     {
-        return page.get().readRecord( record );
+        // no guard against concurrent writes on same record use:
+        // return page.get().readRecord( record );
+        
+        // re-read any read that happened concurrently with a write
+        byte[] data;
+        Page pageReadFrom;
+        do
+        {
+           pageReadFrom = page.get();
+           data = pageReadFrom.readRecord( record );
+        } while ( pageReadFrom != page.get() );
+        return data;
     }
 
     public void writeRecord( long record, byte[] data )

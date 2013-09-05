@@ -6,5 +6,5 @@ public enum PageSynchronization
     ATOMIC,
     LOCK,
     QUEUE,
-    LMAX
+    DISRUPTOR
 }

@@ -18,9 +18,8 @@ import com.lmax.disruptor.RingBuffer;
 import com.lmax.disruptor.dsl.Disruptor;
 
 // we want multiple threads -> single thread
-// having multiple threads -> multiple threads still requires sync on buffer
-// please fix
-public class LmaxPagingSystemOnFile implements SomethingWithRecords
+// no a good fit
+public class DisruptorPagingSystemOnFile implements SomethingWithRecords
 {
     private final QueueNotificationType notificationType; 
   
@@ -30,7 +29,7 @@ public class LmaxPagingSystemOnFile implements SomethingWithRecords
     private final Disruptor<OperationEvent> disruptor = new Disruptor<OperationEvent>( OperationEvent.FACTORY, 1024, exec );
     private RingBuffer<OperationEvent> ringBuffer;
     
-    public LmaxPagingSystemOnFile( FileWithRecords fwr, int targetPageSize, PageType pageType, 
+    public DisruptorPagingSystemOnFile( FileWithRecords fwr, int targetPageSize, PageType pageType, 
             QueueNotificationType notificationType )
     {
         this.psof = new PagingSystemOnFile( fwr, targetPageSize, pageType, PageSynchronization.NONE );

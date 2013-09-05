@@ -4,7 +4,7 @@ import java.io.File;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.neo4j.bench.page.api.SomethingWithRecords;
-import org.neo4j.bench.page.impl.LmaxPagingSystemOnFile;
+import org.neo4j.bench.page.impl.DisruptorPagingSystemOnFile;
 import org.neo4j.bench.page.impl.PagingSystemOnFile;
 import org.neo4j.bench.page.impl.QueuedPagingSystemOnFile;
 
@@ -84,8 +84,8 @@ public class PagingBenchmark
         case QUEUE:
             swr = new QueuedPagingSystemOnFile( fwr, pageSizeKb*1024, pageType, QueueNotificationType.NONE );
             break;
-        case LMAX:
-            swr = new LmaxPagingSystemOnFile( fwr, pageSizeKb*1024, pageType, QueueNotificationType.NONE );
+        case DISRUPTOR:
+            swr = new DisruptorPagingSystemOnFile( fwr, pageSizeKb*1024, pageType, QueueNotificationType.NONE );
             break;
         default:
             throw new RuntimeException( "" + pageSync );
@@ -348,9 +348,9 @@ public class PagingBenchmark
                     {
                         pageSync = PageSynchronization.QUEUE;
                     }
-                    else if ( syncString.equals(  PageSynchronization.LMAX.name() ) )
+                    else if ( syncString.equals(  PageSynchronization.DISRUPTOR.name() ) )
                     {
-                        pageSync = PageSynchronization.LMAX;
+                        pageSync = PageSynchronization.DISRUPTOR;
                     }
                     else
                     {
