@@ -44,7 +44,7 @@ public class PagingBenchmark
                 "\t--secondsBetweenStats <seconds> \n" +
                 "\n" +
                 "\t--pageType <PLAIN | MEMORY_MAPPED | FAKE> \n" +
-                "\t--sync <NONE | ATOMIC | LOCK | QUEUE | LMAX> \n" +
+                "\t--sync <NONE | ATOMIC | LOCK | QUEUE | DISRUPTOR> \n" +
                 "\t--pageSizeInKb <size kb> \n" +
                 "\n" +
                 "\t--printConfiguration \n" +
