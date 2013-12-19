@@ -1,5 +1,7 @@
 package org.neo4j.bench.page.impl;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.neo4j.bench.page.api.Page;
@@ -7,6 +9,10 @@ import org.neo4j.bench.page.api.PageElement;
 
 class AtomicPageElement implements PageElement
 {
+    final AtomicInteger nextVersion = new AtomicInteger();
+    final AtomicInteger currentVersion = new AtomicInteger();
+    final AtomicBoolean spinLockWriterWriting = new AtomicBoolean( false );
+    
     final AtomicReference<Page> page;
 
     AtomicPageElement( Page page )
@@ -16,28 +22,29 @@ class AtomicPageElement implements PageElement
     
     public byte[] readRecord( long record )
     {
-        // no guard against concurrent writes on same record use:
-        // return page.get().readRecord( record );
-        
-        // re-read any read that happened concurrently with a write
-        byte[] data;
-        Page pageReadFrom;
+        int current; 
         do
         {
-           pageReadFrom = page.get();
-           data = pageReadFrom.readRecord( record );
-        } while ( pageReadFrom != page.get() );
-        return data;
+            current = currentVersion.get();
+            Page pageToReadFrom = page.get();
+            return pageToReadFrom.readRecord( record );
+        } while ( current != nextVersion.get() );
     }
 
     public void writeRecord( long record, byte[] data )
     {
-        Page oldPage, newPage;
-        do
+        while ( !spinLockWriterWriting.compareAndSet( false, true ) );
+        try
         {
-            oldPage = page.get();
-            newPage = oldPage.copy();
-            newPage.writeRecord( record, data );
-        } while ( !page.compareAndSet( oldPage, newPage ) );
+            int versionToSet;
+            versionToSet = nextVersion.incrementAndGet();
+            Page realPage = page.get();
+            realPage.writeRecord( record, data );
+            currentVersion.set( versionToSet );
+        }
+        finally
+        {
+            spinLockWriterWriting.set( false );
+        }
     }
 }
